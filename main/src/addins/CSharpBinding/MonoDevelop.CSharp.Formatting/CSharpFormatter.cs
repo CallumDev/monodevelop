@@ -38,6 +38,8 @@ using MonoDevelop.Ide.Editor;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.Formatting;
+using Microsoft.CodeAnalysis.Editor;
+using Microsoft.CodeAnalysis.Shared.Extensions;
 using MonoDevelop.Ide.TypeSystem;
 using ICSharpCode.NRefactory6.CSharp;
 using MonoDevelop.Ide;
@@ -99,9 +101,19 @@ namespace MonoDevelop.CSharp.Formatting
 			}
 		}
 
-		protected override void OnTheFlyFormatImplementation (TextEditor editor, DocumentContext context, int startOffset, int length)
+		protected override async void OnTheFlyFormatImplementation (TextEditor editor, DocumentContext context, int startOffset, int length)
 		{
-			OnTheFlyFormatter.Format (editor, context, startOffset, startOffset + length);
+			var doc = context.AnalysisDocument;
+
+			var formattingService = doc.GetLanguageService<IEditorFormattingService> ();
+			if (formattingService == null || !formattingService.SupportsFormatSelection)
+				return;
+
+			var changes = await formattingService.GetFormattingChangesAsync (doc, new TextSpan (startOffset, length), default (System.Threading.CancellationToken));
+			if (changes == null)
+				return;
+			editor.ApplyTextChanges (changes);
+			editor.FixVirtualIndentation ();
 		}
 
 		public static string FormatText (Microsoft.CodeAnalysis.Options.OptionSet optionSet, string input, int startOffset, int endOffset)
