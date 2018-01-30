@@ -39,6 +39,10 @@ using Roslyn.Utilities;
 using System.Threading;
 using Microsoft.CodeAnalysis;
 using System.Linq;
+using MonoDevelop.Ide;
+using Microsoft.CodeAnalysis.Editor;
+using Microsoft.CodeAnalysis.Editor.Shared.Extensions;
+using Microsoft.CodeAnalysis.Shared.Extensions;
 
 namespace MonoDevelop.CSharp.Formatting
 {
@@ -55,33 +59,7 @@ namespace MonoDevelop.CSharp.Formatting
 
 		public override string FormatPlainText (int insertionOffset, string text, byte [] copyData)
 		{
-			var result = engine.FormatPlainText (indent.Editor, insertionOffset, text, copyData);
-
-			if (DefaultSourceEditorOptions.Instance.OnTheFlyFormatting) {
-				var tree = indent.DocumentContext.AnalysisDocument.GetSyntaxTreeAsync ().WaitAndGetResult (default (CancellationToken));
-				tree = tree.WithChangedText (tree.GetText ().WithChanges (new TextChange (new TextSpan (insertionOffset, 0), text)));
-
-				var insertedChars = text.Length;
-				var startLine = indent.Editor.GetLineByOffset (insertionOffset);
-
-				var policy = indent.DocumentContext.GetFormattingPolicy ();
-				var optionSet = policy.CreateOptions (indent.Editor.Options);
-				var span = new TextSpan (insertionOffset, insertedChars);
-
-				var rules = new List<IFormattingRule> { new PasteFormattingRule () };
-				rules.AddRange (Formatter.GetDefaultFormattingRules (indent.DocumentContext.AnalysisDocument));
-
-				var root = tree.GetRoot ();
-				var changes = Formatter.GetFormattedTextChanges (root, SpecializedCollections.SingletonEnumerable (span), indent.DocumentContext.RoslynWorkspace, optionSet, rules, default (CancellationToken));
-				var doc = TextEditorFactory.CreateNewDocument ();
-				doc.Text = text;
-				doc.ApplyTextChanges (changes.Where (c => c.Span.Start - insertionOffset < text.Length && c.Span.Start - insertionOffset >= 0).Select (delegate (TextChange c) { 
-					return new TextChange (new TextSpan (c.Span.Start - insertionOffset, c.Span.Length), c.NewText); 
-				}));
-				return doc.Text;
-			}
-
-			return result;
+			return text;
 		}
 
 		public override byte [] GetCopyData (int offset, int length)
@@ -94,31 +72,17 @@ namespace MonoDevelop.CSharp.Formatting
 			if (indent.Editor.Options.IndentStyle == IndentStyle.None ||
 				indent.Editor.Options.IndentStyle == IndentStyle.Auto)
 				return Task.CompletedTask;
+			var doc = indent.DocumentContext.AnalysisDocument;
 
-			// Just correct the start line of the paste operation - the text is already Formatted.
-			var curLine = indent.Editor.GetLineByOffset (length);
-			var curLineOffset = curLine.Offset;
-			indent.SafeUpdateIndentEngine (curLineOffset);
-			if (!indent.stateTracker.IsInsideOrdinaryCommentOrString) {
-				int pos = curLineOffset;
-				string curIndent = curLine.GetIndentation (indent.Editor);
-				int nlwsp = curIndent.Length;
-				if (!indent.stateTracker.LineBeganInsideMultiLineComment || (nlwsp < curLine.LengthIncludingDelimiter && indent.Editor.GetCharAt (curLineOffset + nlwsp) == '*')) {
-					// Possibly replace the indent
-					indent.SafeUpdateIndentEngine (curLineOffset + curLine.Length);
-					string newIndent = indent.stateTracker.ThisLineIndent;
-					if (newIndent != curIndent) {
-						if (CompletionWindowManager.IsVisible) {
-							if (pos < CompletionWindowManager.CodeCompletionContext.TriggerOffset)
-								CompletionWindowManager.CodeCompletionContext.TriggerOffset -= nlwsp;
-						}
-						indent.Editor.ReplaceText (pos, nlwsp, newIndent);
-						//						textEditorData.Document.CommitLineUpdate (textEditorData.CaretLine);
-					}
-				}
-			}
+			var formattingService = doc.GetLanguageService<IEditorFormattingService> ();
+			if (formattingService == null || !formattingService.SupportsFormatOnPaste)
+				return Task.CompletedTask;
+
+			var changes = await formattingService.GetFormattingChangesOnPasteAsync (doc, new TextSpan (insertionOffset, insertedChars), default (CancellationToken));
+			if (changes == null)
+				return Task.CompletedTask;
+			indent.Editor.ApplyTextChanges (changes);
 			indent.Editor.FixVirtualIndentation ();
-			return Task.CompletedTask;
 		}
 
 		class PasteFormattingRule : AbstractFormattingRule
@@ -140,4 +104,3 @@ namespace MonoDevelop.CSharp.Formatting
 		}
 	}
 }
-
