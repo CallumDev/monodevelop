@@ -16,8 +16,8 @@ namespace MonoDevelop.SourceEditor.Braces
 
 		public override bool KeyPress (KeyDescriptor descriptor)
 		{
+			
 			char typedChar = descriptor.KeyChar;
-			Console.WriteLine ("key press !!!");
 			if ((descriptor.SpecialKey == SpecialKey.None) &&
 				(typedChar != '\0')) {
 				// handle closing braces if there is an active session
@@ -25,7 +25,6 @@ namespace MonoDevelop.SourceEditor.Braces
 					|| Manager.OpeningBraces.IndexOf (typedChar) > -1) {
 					bool handledCommand = false;
 					Manager.PreTypeChar (typedChar, out handledCommand);
-					Console.WriteLine ("pre type " + typedChar + " handled:" + handledCommand);
 
 					if (handledCommand) {
 						return false;

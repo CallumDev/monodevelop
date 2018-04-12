@@ -320,8 +320,6 @@ namespace MonoDevelop.SourceEditor.Braces
 					IBraceCompletionSession currentSession = null;
 
 					factory.GuardedOperations.CallExtensionPoint (() => {
-						var document = openingPoint.GetOpenDocumentInCurrentContextWithChanges ();
-
 						created = _sessionPair.Value.TryCreateSession (textView, openingPoint, openingBrace, closingBrace, out currentSession);
 					});
 

@@ -103,18 +103,13 @@ namespace MonoDevelop.SourceEditor.Braces
 
 			handledCommand = handled;
 
-			Console.WriteLine ("opnening braces:" + _sessionAggregator.OpeningBraces);
-
 			// otherwise check if this starts a new session
 			if (_postSession == null && !handled && Enabled && !hasSelection
 			    && _sessionAggregator.OpeningBraces.IndexOf (character) > -1 && !HasForwardTypingOnLine) {
 				SnapshotPoint? openingPoint = _textView.Caret.Position.Point.GetInsertionPoint ((b => _sessionAggregator.IsSupportedContentType (b.ContentType, character)));
-				Console.WriteLine (1);
 				if (openingPoint.HasValue) {
 					IBraceCompletionSession session = null;
-					Console.WriteLine (2);
 					if (_sessionAggregator.TryCreateSession (_textView, openingPoint.Value, character, out session)) {
-						Console.WriteLine ("session created " + 3 );
 						// add the session after the current keystroke completes
 						_waitingSession = session;
 						_waitingSessionOpeningPoint = openingPoint;
