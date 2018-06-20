@@ -67,20 +67,20 @@ namespace MonoDevelop.CSharp.Formatting
 			return engine.GetCopyData (indent.Editor, new TextSpan (offset, length));
 		}
 
-		public override Task PostFomatPastedText (int offset, int length)
+		public override async Task PostFomatPastedText (int offset, int length)
 		{
 			if (indent.Editor.Options.IndentStyle == IndentStyle.None ||
 				indent.Editor.Options.IndentStyle == IndentStyle.Auto)
-				return Task.CompletedTask;
+				return;
 			var doc = indent.DocumentContext.AnalysisDocument;
 
 			var formattingService = doc.GetLanguageService<IEditorFormattingService> ();
 			if (formattingService == null || !formattingService.SupportsFormatOnPaste)
-				return Task.CompletedTask;
+				return;
 
-			var changes = await formattingService.GetFormattingChangesOnPasteAsync (doc, new TextSpan (insertionOffset, insertedChars), default (CancellationToken));
+			var changes = await formattingService.GetFormattingChangesOnPasteAsync (doc, new TextSpan (offset, length), default (CancellationToken));
 			if (changes == null)
-				return Task.CompletedTask;
+				return;
 			indent.Editor.ApplyTextChanges (changes);
 			indent.Editor.FixVirtualIndentation ();
 		}
