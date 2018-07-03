@@ -163,7 +163,7 @@ namespace MonoDevelop.Core
 
 		public void Set (string key, object val)
 		{
-			object old = Get (key, val?.GetType ());
+			object old = Get (key, val?.GetType () ?? typeof(object));
 			if (val == null) {
 				//avoid emitting the event if not necessary
 				if (old == null)
